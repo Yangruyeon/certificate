@@ -164,7 +164,7 @@ contract certificate {
         }
     }
     
-    function deleteCert() private {
+    function deleteCert() public {
         del.push(deleteInfo(certhash));
         delete addressToInfo[addr];
         delete certificates[addr];
