@@ -15,32 +15,37 @@ contract certificate {
         address userPubkey;
     }
     
+    struct deleteInfo{
+        bytes32 certhash;
+    }
+    
     bytes32 certhash;
     address addr;
     uint notBefore;
     uint notAfter;
     
-    constructor() public {
+    constructor() public  {
         addr = msg.sender;
     }
     
     mapping(address => userinfo) public addressToInfo;
     mapping(address => cert) public certificates;
+    deleteInfo[] public del;
     
     
-    function hasinfo(address addr) public returns(bool){
+    function hasinfo() public returns(bool){
         if(addressToInfo[addr].id == 0 ){
             return false;
         }
         return true;
     }
     
-    function setTime() public{
+    function setTime() private {
         notBefore = block.timestamp;
         notAfter = notBefore + 365 days;
     }
     
-    function newUserInfo(string memory name, string memory birth) public{
+    function newUserInfo(string memory name, string memory birth) private {
         addressToInfo[addr].addr = msg.sender;
         addressToInfo[addr].name = name;
         addressToInfo[addr].birth = birth;
@@ -89,18 +94,18 @@ contract certificate {
         return _data;
     }
     
-    function setId() public returns(bytes32){
+    function setId() public view returns(bytes32){
         return keccak256(abi.encodePacked(block.timestamp, msg.sender));
     }
     
-    function newCert() public{
+    function newCert() private {
         certificates[addr].caPubkey = 0x19dec5DE28cD9433d73A5FEA9C9D99E137064B57;
         certificates[addr].userPubkey = addr;
         certificates[addr].certhash = certhash;
     }
     
-    function getCertificate() public view returns(address, string memory, string memory, uint, uint){
-        return(addressToInfo[addr].addr, addressToInfo[addr].name, addressToInfo[addr].birth, addressToInfo[addr].notBefore, addressToInfo[addr].notAfter);
+    function getCertificate() public view returns(address, string memory, string memory, uint, uint, bytes32){
+        return(addressToInfo[addr].addr, addressToInfo[addr].name, addressToInfo[addr].birth, addressToInfo[addr].notBefore, addressToInfo[addr].notAfter, addressToInfo[addr].id);
     }
     
     function getCertInfo() public view returns(bytes32, address, address){
@@ -108,15 +113,50 @@ contract certificate {
     }
     
     function issue(string memory name, string memory birth) public {
-        if(hasinfo(addr) == false){
+        if(hasinfo() == false){
             setTime();
             newUserInfo(name, birth);
             newCert();
         }
     }
     
-    function verification(bytes32 hash) public returns(bool){
-        if(hash == certificates[addr].certhash){
+    function verification2(string memory name, string memory birth, uint nbefore, uint nafter, bytes32 id) public returns(bool){
+        uint _size = 116 + bytes(name).length + bytes(birth).length;
+        bytes memory _data = new bytes(_size);
+        
+        uint counter = 0;
+        bytes memory baddr = abi.encodePacked(addr);
+        bytes memory bBefore = abi.encodePacked(nbefore);
+        bytes memory bafter = abi.encodePacked(nafter);
+        bytes memory bId = abi.encodePacked(id);
+        for (uint i = 0; i < 20; i++){
+            _data[counter] = bytes(baddr)[i];
+            counter++;
+        }
+        for (uint i = 0; i < bytes(name).length; i++){
+            _data[counter] = bytes(name)[i];
+            counter++;
+        }
+        for (uint i = 0; i < bytes(birth).length; i++){
+            _data[counter] = bytes(birth)[i];
+            counter++;
+        }
+        for (uint i = 0; i < 32; i++){
+            _data[counter] = bytes(bBefore)[i];
+            counter++;
+        }
+        for (uint i = 0; i < 32; i++){
+            _data[counter] = bytes(bafter)[i];
+            counter++;
+        }
+        for (uint i = 0; i < 32; i++){
+            _data[counter] = bytes(bId)[i];
+            counter++;
+        }
+        
+        bytes32 verifyHash = keccak256(_data);
+        
+        if(verifyHash == certificates[addr].certhash){
             return true;
         }
         else{
@@ -124,20 +164,9 @@ contract certificate {
         }
     }
     
-    function scrapCert(address addr) public returns(bool){
-        if((name == addressToInfo[addr].name) && (birth == addressToInfo[addr].birth)){
-            return false;
-            resetInfo();
-        }
-        return true;
-    }
-    
-    function resetInfo() public{
-        delete addressToInfo[addr].addr;
-        delete addressToInfo[addr].name;
-        delete addressToInfo[addr].birth;
-        delete addressToInfo[addr].notBefore;
-        delete addressToInfo[addr].notAfter;
-        delete addressToInfo[addr].id;
+    function deleteCert() private {
+        del.push(deleteInfo(certhash));
+        delete addressToInfo[addr];
+        delete certificates[addr];
     }
 }
